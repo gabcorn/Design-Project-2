@@ -1,6 +1,6 @@
 #include <SoftwareSerial.h>
 
-SoftwareSerial rxtxSerial(0,1);
+#define rxtxSerial Serial1
 
 void setup() 
 {
@@ -20,7 +20,9 @@ void loop()
       rxtxSerial.println(data);
       Serial.println("Data sent");
       Serial.println(data);
-      digitalWrite(LED_BUILTIN, 1);  
+      digitalWrite(LED_BUILTIN, 1);
+      delay(100);
+      digitalWrite(LED_BUILTIN, 0);
     }
   }
   delay(100);
