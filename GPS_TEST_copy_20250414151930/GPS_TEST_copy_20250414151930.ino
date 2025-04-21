@@ -5,7 +5,7 @@
 #include <SPI.h>
 
 #define gpsSerial Serial2
-#define BUILTIN_SDCARD 254  // For Teensy's internal SD slot
+
 
 TinyGPSPlus gps;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -68,8 +68,8 @@ void loop() {
       Serial.print(accz, 2); Serial.print(",");
 
       Serial.print(magx, 2); Serial.print(",");
-      Serial.print(magy, 2); Serial.println(magz, 2);
-
+      Serial.print(magy, 2); Serial.print(",");
+      Serial.println(magz, 2);
       // Log to SD
       if (logFile) {
         logFile.print(lat, 6); logFile.print(",");
@@ -86,7 +86,8 @@ void loop() {
         logFile.print(accz, 2); logFile.print(",");
 
         logFile.print(magx, 2); logFile.print(",");
-        logFile.print(magy, 2); logFile.println(magz, 2);
+        logFile.print(magy, 2); logFile.print(",");
+        logFile.println(magz, 2);
         logFile.flush();
       }
 
