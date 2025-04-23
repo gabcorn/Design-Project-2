@@ -11,9 +11,9 @@ void setup() {
     Serial.println("SD card initialization failed");
   }
   
-  file = SD.open("tes.txt");
+  file = SD.open("test.txt");
 
-  Serial.println("AHHHH I made the thing AHHHH");
+  Serial.println("Initialization complete");
 
 }
 
