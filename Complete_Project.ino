@@ -6,27 +6,38 @@
 #include <Adafruit_Sensor.h>
 #include <LiquidCrystal_I2C.h>
 
-#define gpsSerial Serial2       // GPS on Serial2
-#define LCD_ADDR 0x27           // Change if needed
+// Serial interfaces
+#define gpsSerial Serial2
+#define btSerial  Serial1
 
+// LCD config
+#define LCD_ADDR 0x27
+LiquidCrystal_I2C lcd(LCD_ADDR, 16, 2);
+
+// IMU
+Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1();
+
+// GPS
 TinyGPSPlus gps;
-Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1();       // IMU on default I2C (Wire)
-LiquidCrystal_I2C lcd(LCD_ADDR, 16, 2);          // LCD on same I2C bus
+
+// SD
 File logFile;
 
 // Sensor values
-float avx = 0, avy = 0, avz = 0;
-float accx = 0, accy = 0, accz = 0;
-float magx = 0, magy = 0, magz = 0;
+float avx, avy, avz;
+float accx, accy, accz;
+float magx, magy, magz;
 
 void setup() {
-  Serial.begin(9600);
-  gpsSerial.begin(9600);
+  Serial.begin(9600);      // USB for GUI/debug
+  btSerial.begin(9600);    // Bluetooth output
+  gpsSerial.begin(9600);   // GPS input
 
   lcd.init();
   lcd.backlight();
   lcd.print("Init SD card...");
 
+  // SD card
   if (!SD.begin(BUILTIN_SDCARD)) {
     lcd.clear();
     lcd.print("SD FAIL");
@@ -42,6 +53,7 @@ void setup() {
   lcd.clear();
   lcd.print("Init IMU...");
 
+  // LSM9DS1 IMU over I2C (Wire)
   if (!lsm.begin()) {
     lcd.clear();
     lcd.print("IMU FAIL");
@@ -57,18 +69,21 @@ void setup() {
 }
 
 void loop() {
-  // Read IMU
+  // IMU read
   lsm.read();
   accx = lsm.accelData.x;
   accy = lsm.accelData.y;
   accz = lsm.accelData.z;
-  avx  = lsm.gyroData.x;
-  avy  = lsm.gyroData.y;
-  avz  = lsm.gyroData.z;
+
+  avx = lsm.gyroData.x;
+  avy = lsm.gyroData.y;
+  avz = lsm.gyroData.z;
+
   magx = lsm.magData.x;
   magy = lsm.magData.y;
   magz = lsm.magData.z;
 
+  // GPS read
   while (gpsSerial.available()) {
     gps.encode(gpsSerial.read());
 
@@ -78,46 +93,24 @@ void loop() {
       float alt = gps.altitude.isValid() ? gps.altitude.meters() : -1.0;
       int sats = gps.satellites.value();
 
-      // Send to Serial
-      Serial.print(lat, 6); Serial.print(",");
-      Serial.print(lng, 6); Serial.print(",");
-      Serial.print(alt, 2); Serial.print(",");
-      Serial.print(sats); Serial.print(",");
+      // Combine into a single line
+      String line =
+        String(lat, 6) + "," + String(lng, 6) + "," + String(alt, 2) + "," + String(sats) + "," +
+        String(avx, 2) + "," + String(avy, 2) + "," + String(avz, 2) + "," +
+        String(accx, 2) + "," + String(accy, 2) + "," + String(accz, 2) + "," +
+        String(magx, 2) + "," + String(magy, 2) + "," + String(magz, 2);
 
-      Serial.print(avx, 2); Serial.print(",");
-      Serial.print(avy, 2); Serial.print(",");
-      Serial.print(avz, 2); Serial.print(",");
+      // Output to USB + Bluetooth
+      Serial.println(line);
+      btSerial.println(line);
 
-      Serial.print(accx, 2); Serial.print(",");
-      Serial.print(accy, 2); Serial.print(",");
-      Serial.print(accz, 2); Serial.print(",");
-
-      Serial.print(magx, 2); Serial.print(",");
-      Serial.print(magy, 2); Serial.print(",");
-      Serial.println(magz, 2);
-
-      // Log to SD
+      // Output to SD
       if (logFile) {
-        logFile.print(lat, 6); logFile.print(",");
-        logFile.print(lng, 6); logFile.print(",");
-        logFile.print(alt, 2); logFile.print(",");
-        logFile.print(sats); logFile.print(",");
-
-        logFile.print(avx, 2); logFile.print(",");
-        logFile.print(avy, 2); logFile.print(",");
-        logFile.print(avz, 2); logFile.print(",");
-
-        logFile.print(accx, 2); logFile.print(",");
-        logFile.print(accy, 2); logFile.print(",");
-        logFile.print(accz, 2); logFile.print(",");
-
-        logFile.print(magx, 2); logFile.print(",");
-        logFile.print(magy, 2); logFile.print(",");
-        logFile.println(magz, 2);
+        logFile.println(line);
         logFile.flush();
       }
 
-      // LCD output (GPS only)
+      // Output to LCD (GPS only)
       lcd.setCursor(0, 0);
       lcd.print("N:"); lcd.print(abs(lat), 2); lcd.print((lat < 0) ? "S" : "N");
       lcd.setCursor(8, 0);
