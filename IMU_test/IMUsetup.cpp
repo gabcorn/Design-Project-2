@@ -3,6 +3,7 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_LSM6DSOX.h>
 #include <SD.h>
+#include <SPI.h>
 
 Adafruit_LIS3MDL lis3mdl;
 Adafruit_LSM6DSOX sox;
@@ -14,6 +15,8 @@ Adafruit_LSM6DSOX sox;
 #define LSM_SCK 13
 #define LSM_MISO 12
 #define LSM_MOSI 11
+
+File logFile;
 
 void setup(void) {
     Serial.begin(9600);
@@ -45,59 +48,24 @@ void setup(void) {
     }
   }
 
-  logFile = SD.open("gps_log.csv", FILE_WRITE);
+  if (!SD.begin(BUILTIN_SDCARD)){
+    Serial.println("SD card initialization failed");
+  }
+
+  logFile = SD.open("log.csv", FILE_WRITE);
   if (logFile) {
   logFile.println("Temperature,Acc_X,Acc_Y,Acc_Z,Gyro_X,Gyro_Y,Gyro_Z,Mag_X,Mag_Y,Mag_Z");
   logFile.flush();
   }
+  else{
+    Serial.println("COuldn't open file");
+  }
+  
 
   Serial.println("LSM6DSOX Found!"); 
   }
   
-  /*void loop() { 
 
-//  /* Get a new normalized sensor event 
-  sensors_event_t accel;
-  sensors_event_t gyro;
-  sensors_event_t temp;
-  sox.getEvent(&accel, &gyro, &temp);
-
-  Serial.print("\t\tTemperature ");
-  Serial.print(temp.temperature);
-  Serial.println(" deg C");
-
-    /* Display the results (acceleration is measured in m/s^2) 
-  Serial.print("\t\tAccel X: ");
-  Serial.print(accel.acceleration.x);
-  Serial.print(" \t|  Y: ");
-  Serial.print(accel.acceleration.y);
-  Serial.print(" \t|  Z: ");
-  Serial.print(accel.acceleration.z);
-  Serial.println(" | m/s^2 ");
-
-  /* Display the results (rotation is measured in rad/s) *
-  Serial.print("\t\tGyro X: ");
-  Serial.print(gyro.gyro.x);
-  Serial.print(" \t|  Y: ");
-  Serial.print(gyro.gyro.y);
-  Serial.print(" \t|  Z: ");
-  Serial.print(gyro.gyro.z);
-  Serial.println(" |  radians/s ");
-  Serial.println();
-
-    /* Or....get a new sensor event, normalized to uTesla *
-    sensors_event_t event; 
-    lis3mdl.getEvent(&event);
-    /* Display the results (magnetic field is measured in uTesla) *
-    Serial.print("\tX: "); Serial.print(event.magnetic.x);
-    Serial.print(" \t|  Y: "); Serial.print(event.magnetic.y); 
-    Serial.print(" \t|  Z: "); Serial.print(event.magnetic.z); 
-    Serial.println(" |  uTesla ");
-  
-    delay(100); 
-    Serial.println();
-    Serial.
-  }*/
   void loop() {
 sensors_event_t accel, gyro, temp;
 sox.getEvent(&accel, &gyro, &temp);
@@ -126,7 +94,7 @@ if (logFile) {
       logFile.print(gyro.gyro.z); logFile.print(",");
       logFile.print(event.magnetic.x); logFile.print(",");
       logFile.print(event.magnetic.y); logFile.print(",");
-      logFile.print(event.magnetic.z);
+      logFile.println(event.magnetic.z);
       logFile.flush();
     }
 delay(100);
