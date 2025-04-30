@@ -68,7 +68,7 @@ class GPSIMUGUI(tk.Tk):
 
     def detect_ports(self):
         ports = serial.tools.list_ports.comports()
-        return [port.device for port in ports if "Teensy" in port.description or "USB" in port.description]
+        return [port.device for port in ports if "Teensy" in port.description or "USB" in port.description or "Bluetooth"]
 
     def refresh_ports(self):
         self.port_menu['values'] = self.detect_ports()

@@ -1,4 +1,3 @@
-
 import tkinter as tk
 from tkinter import messagebox, ttk
 import serial
@@ -6,6 +5,7 @@ import serial.tools.list_ports
 import threading
 import csv
 import time
+
 
 fields = [
     "Latitude", "Longitude", "Elevation", "Satellites",
@@ -19,7 +19,7 @@ class GPSIMUGUI(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("GPS/IMU Real-Time Viewer")
-        self.geometry("400x600")
+        self.geometry("420x650")
         self.configure(bg="#f0f0f0")
 
         self.ser = None
@@ -34,6 +34,10 @@ class GPSIMUGUI(tk.Tk):
         self.port_menu['values'] = self.detect_ports()
         self.port_menu.set("Select COM Port")
         self.port_menu.pack(pady=10)
+
+        self.refresh_button = ttk.Button(
+            self, text="Refresh Ports", command=self.refresh_ports)
+        self.refresh_button.pack(pady=2)
 
         self.start_button = ttk.Button(
             self, text="Start Display", command=self.start_display)
@@ -55,11 +59,21 @@ class GPSIMUGUI(tk.Tk):
             self, text="End Display", command=self.stop_display)
         self.stop_button.pack(pady=10)
 
+        self.status_var = tk.StringVar()
+        self.status_label = ttk.Label(
+            self, textvariable=self.status_var, relief="sunken", anchor="w")
+        self.status_label.pack(side=tk.BOTTOM, fill=tk.X)
+
         self.protocol("WM_DELETE_WINDOW", self.close_app)
 
     def detect_ports(self):
         ports = serial.tools.list_ports.comports()
-        return [port.device for port in ports]
+        return [port.device for port in ports if "Teensy" in port.description or "USB" in port.description or "Bluetooth"]
+
+    def refresh_ports(self):
+        self.port_menu['values'] = self.detect_ports()
+        self.port_menu.set("Select COM Port")
+        self.status_var.set("Ports refreshed")
 
     def start_display(self):
         port = self.port_var.get()
@@ -68,42 +82,53 @@ class GPSIMUGUI(tk.Tk):
                 "Select Port", "Please select a valid COM port.")
             return
         try:
-            self.ser = serial.Serial(port, 115200, timeout=1)
+            self.ser = serial.Serial(port, 9600, timeout=1)
+            self.status_var.set(f"Connected to {port}")
         except serial.SerialException:
             messagebox.showerror("Serial Error", f"Could not open port {port}")
             return
 
-        # Open CSV log file
         timestamp = time.strftime("%Y%m%d_%H%M%S")
-        self.csv_file = open(f"gps_imu_log_{timestamp}.csv", "w", newline="")
-        self.csv_writer = csv.writer(self.csv_file)
-        self.csv_writer.writerow(fields)
+        try:
+            self.csv_file = open(
+                f"gps_imu_log_{timestamp}.csv", "w", newline="")
+            self.csv_writer = csv.writer(self.csv_file)
+            self.csv_writer.writerow(fields)
+        except Exception as e:
+            messagebox.showerror("File Error", f"Failed to open CSV: {e}")
+            return
 
         self.stop_thread = False
-        self.serial_thread = threading.Thread(target=self.read_serial)
+        self.serial_thread = threading.Thread(
+            target=self.read_serial, daemon=True)
         self.serial_thread.start()
 
     def stop_display(self):
         self.stop_thread = True
         if self.serial_thread:
-            self.serial_thread.join()
+            self.serial_thread.join(timeout=1)
         if self.ser and self.ser.is_open:
             self.ser.close()
+            self.status_var.set("Disconnected")
         if self.csv_file:
             self.csv_file.close()
+            self.csv_file = None
+            self.csv_writer = None
 
     def read_serial(self):
         while not self.stop_thread and self.ser and self.ser.is_open:
             try:
-                line = self.ser.readline().decode().strip()
+                line = self.ser.readline().decode(errors='ignore').strip()
                 if line:
                     data = line.split(",")
                     if len(data) == len(fields):
                         for i, field in enumerate(fields):
                             self.labels[field].config(text=data[i])
-                        self.csv_writer.writerow(data)
+                        if self.csv_writer:
+                            self.csv_writer.writerow(data)
             except Exception as e:
-                print("Error reading serial:", e)
+                self.status_var.set(f"Serial Error: {e}")
+                break
 
     def close_app(self):
         self.stop_display()
